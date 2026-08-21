@@ -1,11 +1,12 @@
 # API Reference
 
 All requests and responses use `application/json`.
-Trusted API endpoints require the `Authorization` header with a Bearer token matching the `SUN_API_SECRET` environment variable.
+Trusted API endpoints require the `x-api-key` header set to the `SUN_API_SECRET` environment variable.
 
 ---
 
 ## `GET /health`
+
 Liveness probe for infrastructure checks.
 
 - **Auth**: None
@@ -22,9 +23,10 @@ Liveness probe for infrastructure checks.
 ---
 
 ## `GET /availability`
+
 Fetches available booking slots for a specific date, combining the ruleset with live Google Calendar free/busy data.
 
-- **Auth**: `SUN_API_SECRET` header
+- **Auth**: `x-api-key` header
 - **Query Params**:
   - `date` (string, required): Format `YYYY-MM-DD`
 - **Response**: `200 OK`
@@ -33,11 +35,7 @@ Fetches available booking slots for a specific date, combining the ruleset with 
     "ok": true,
     "data": {
       "date": "2026-08-20",
-      "slots": [
-        "09:00",
-        "09:30",
-        "10:00"
-      ]
+      "slots": ["09:00", "09:30", "10:00"]
     }
   }
   ```
@@ -46,9 +44,10 @@ Fetches available booking slots for a specific date, combining the ruleset with 
 ---
 
 ## `POST /bookings`
+
 Submits a booking request. Depending on the day of the week, this either instant-books the event or sends an approval request email to the host.
 
-- **Auth**: `SUN_API_SECRET` header
+- **Auth**: `x-api-key` header
 - **Body**:
   ```json
   {
@@ -74,6 +73,7 @@ Submits a booking request. Depending on the day of the week, this either instant
 ---
 
 ## `GET /bookings/approve`
+
 Approves a pending booking. This endpoint is hit directly from a link in the host's email client.
 
 - **Auth**: None (Relies on signed token)
@@ -85,6 +85,7 @@ Approves a pending booking. This endpoint is hit directly from a link in the hos
 ---
 
 ## `GET /bookings/reject`
+
 Rejects a pending booking. Hit directly from a link in the host's email client. Sends a decline notice to the requester.
 
 - **Auth**: None (Relies on signed token)
@@ -96,6 +97,7 @@ Rejects a pending booking. Hit directly from a link in the host's email client. 
 ---
 
 ## `GET /bookings/cancel`
+
 Cancels an existing, approved booking. Hit directly from a link in the client's or host's email. Deletes the Google Calendar event and notifies attendees.
 
 - **Auth**: None (Relies on signed token)
