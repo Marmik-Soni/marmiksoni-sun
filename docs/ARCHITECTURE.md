@@ -40,6 +40,7 @@ This is a deliberate educational and operational choice. A primary goal of this 
 Authentication, payments, client records, and business-specific data explicitly do not belong here. For example, the upcoming client portal will keep its own authentication and business logic in its own backend, and will only call this service for the email/calendar pieces it shares with other apps.
 
 ### Explicitly Out of Scope:
+
 - User authentication or accounts.
 - Payments processing.
 - File storage.
@@ -59,12 +60,14 @@ Trusted consumers (like Next.js apps) must call this service **server-side only*
 
 - **Modes**: Saturday (all day) and Sunday evening are instant-book. Weekdays are request-only and require host manual approval.
 - **Availability**: Slot availability is a combination of a configured weekly-hours ruleset and a live free/busy check.
-- **Calendar Invites**: Creating a booking adds the client as an attendee on the Google Calendar event with `sendUpdates` enabled. Google naturally handles delivering the ICS invite; we do not manually generate ICS files.
+- **Client Notifications & Calendar**: Creating a booking creates a host-only Google Calendar event (`sendUpdates: none`, no attendees). Client notifications (pending, confirmation, decline, cancellation) are delivered entirely via custom Resend emails from our own domain. The confirmation email includes an in-house generated `.ics` attachment to seamlessly add the event to the client's calendar.
 
 ## 8. Module Layout Overview
 
 - `src/lib/calendar.ts` — Google Calendar wrapper (free/busy, create, cancel).
 - `src/lib/email.ts` — Resend wrapper (notifications, approvals, declines).
+- `src/lib/ics.ts` — Generates `.ics` calendar attachments for client confirmation emails.
+- `src/lib/html.ts` — Shared HTML-escaping utility used by both `email.ts` and the booking confirmation pages.
 - `src/lib/approval-token.ts` — Signs and verifies HMAC tokens.
 - `src/config/availability.ts` — Weekly working-hours ruleset.
 - `src/schemas/` — Zod request/response schemas.
