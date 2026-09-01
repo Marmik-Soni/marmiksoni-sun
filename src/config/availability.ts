@@ -66,3 +66,6 @@ export const SLOT_DURATION_MINUTES = 30;
 
 /** Minimum hours of notice required before a slot can be booked. ⚠️ placeholder */
 export const MIN_NOTICE_HOURS = 24;
+
+/** Fixed IST offset — India does not observe DST, so no timezone library needed. */
+export const TIMEZONE_OFFSET = "+05:30";

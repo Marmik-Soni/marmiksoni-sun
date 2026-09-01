@@ -13,7 +13,7 @@ export const CreateBookingSchema = z.object({
   email: z.string().email("email must be valid"),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "date must be YYYY-MM-DD"),
   time: z.string().regex(/^\d{2}:\d{2}$/, "time must be HH:mm"),
-  notes: z.string().optional(),
+  notes: z.string().max(500, "notes must be 500 characters or fewer").optional(),
 });
 
 export type CreateBooking = z.infer<typeof CreateBookingSchema>;

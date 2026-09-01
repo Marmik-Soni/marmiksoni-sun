@@ -1,6 +1,11 @@
 import { google } from "googleapis";
 import { env } from "../config/env.js";
-import { SCHEDULE, SLOT_DURATION_MINUTES, MIN_NOTICE_HOURS } from "../config/availability.js";
+import {
+  SCHEDULE,
+  SLOT_DURATION_MINUTES,
+  MIN_NOTICE_HOURS,
+  TIMEZONE_OFFSET,
+} from "../config/availability.js";
 import type { BookingType } from "../config/availability.js";
 
 export interface Slot {
@@ -32,7 +37,7 @@ const calendar = google.calendar({ version: "v3", auth });
  * The query window spans the full union of that day's availability windows.
  */
 export async function getBusyIntervals(dateISO: string): Promise<{ start: string; end: string }[]> {
-  const dayOfWeek = new Date(`${dateISO}T00:00:00`).getDay();
+  const dayOfWeek = new Date(`${dateISO}T00:00:00${TIMEZONE_OFFSET}`).getDay();
   const schedule = SCHEDULE[dayOfWeek];
 
   if (!schedule || schedule.type === "closed" || schedule.windows.length === 0) {
@@ -45,8 +50,8 @@ export async function getBusyIntervals(dateISO: string): Promise<{ start: string
 
   if (!firstWindow || !lastWindow) return [];
 
-  const timeMin = `${dateISO}T${firstWindow.start}:00`;
-  const timeMax = `${dateISO}T${lastWindow.end}:00`;
+  const timeMin = `${dateISO}T${firstWindow.start}:00${TIMEZONE_OFFSET}`;
+  const timeMax = `${dateISO}T${lastWindow.end}:00${TIMEZONE_OFFSET}`;
 
   const response = await calendar.freebusy.query({
     requestBody: {
@@ -69,7 +74,7 @@ export async function getBusyIntervals(dateISO: string): Promise<{ start: string
  * any intervals that are already busy on the calendar.
  */
 export async function computeAvailableSlots(dateISO: string): Promise<Slot[]> {
-  const dayOfWeek = new Date(`${dateISO}T00:00:00`).getDay();
+  const dayOfWeek = new Date(`${dateISO}T00:00:00${TIMEZONE_OFFSET}`).getDay();
   const schedule = SCHEDULE[dayOfWeek];
 
   if (!schedule || schedule.type === "closed") {
@@ -82,8 +87,8 @@ export async function computeAvailableSlots(dateISO: string): Promise<Slot[]> {
   const slots: Slot[] = [];
 
   for (const window of schedule.windows) {
-    const windowStart = new Date(`${dateISO}T${window.start}:00`);
-    const windowEnd = new Date(`${dateISO}T${window.end}:00`);
+    const windowStart = new Date(`${dateISO}T${window.start}:00${TIMEZONE_OFFSET}`);
+    const windowEnd = new Date(`${dateISO}T${window.end}:00${TIMEZONE_OFFSET}`);
     let cursor = windowStart.getTime();
 
     while (cursor + SLOT_DURATION_MINUTES * 60 * 1000 <= windowEnd.getTime()) {
@@ -123,7 +128,7 @@ export async function computeAvailableSlots(dateISO: string): Promise<Slot[]> {
  * Used as a final guard right before booking.
  */
 export async function isSlotFree(dateISO: string, time: string): Promise<boolean> {
-  const slotStart = new Date(`${dateISO}T${time}:00`).getTime();
+  const slotStart = new Date(`${dateISO}T${time}:00${TIMEZONE_OFFSET}`).getTime();
   const slotEnd = slotStart + SLOT_DURATION_MINUTES * 60 * 1000;
   const busy = await getBusyIntervals(dateISO);
 
@@ -135,25 +140,24 @@ export async function isSlotFree(dateISO: string, time: string): Promise<boolean
 }
 
 /**
- * Creates a Google Calendar event and adds the client as an attendee.
- * Google delivers the calendar invite automatically via sendUpdates.
+ * Creates a Google Calendar event for the host.
+ * Client details are stored in the description field, not as attendees —
+ * all client notifications are handled via Resend instead.
  */
 export async function createEvent(params: {
   summary: string;
   description: string;
   start: string;
   end: string;
-  attendeeEmail: string;
 }): Promise<{ eventId: string }> {
   const response = await calendar.events.insert({
     calendarId: env.GOOGLE_CALENDAR_ID,
-    sendUpdates: "all",
+    sendUpdates: "none",
     requestBody: {
       summary: params.summary,
       description: params.description,
       start: { dateTime: params.start },
       end: { dateTime: params.end },
-      attendees: [{ email: params.attendeeEmail }],
     },
   });
 
@@ -166,12 +170,13 @@ export async function createEvent(params: {
 }
 
 /**
- * Deletes a Google Calendar event. sendUpdates notifies all attendees.
+ * Deletes a Google Calendar event.
+ * Client cancellation notice is sent separately via Resend.
  */
 export async function cancelEvent(eventId: string): Promise<void> {
   await calendar.events.delete({
     calendarId: env.GOOGLE_CALENDAR_ID,
     eventId,
-    sendUpdates: "all",
+    sendUpdates: "none",
   });
 }
