@@ -29,6 +29,9 @@ const filesToInclude = [
   'src/routes/availability.ts',
   'src/routes/bookings.ts',
   'src/routes/routes.test.ts',
+  'src/lib/ics.test.ts',
+  '.github/workflows/ci.yml',
+  'scripts/generate-report.js',
 ];
 
 let reportContent = `# sun-backend Comprehensive Project Report\n\n`;
