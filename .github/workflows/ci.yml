@@ -10,32 +10,90 @@ jobs:
   ci:
     name: Lint, typecheck, test
     runs-on: ubuntu-latest
+    # Skip the full pipeline when only docs or scripts change
+    if: >-
+      github.event_name == 'pull_request' ||
+      !contains(github.event.head_commit.message, '[skip ci]')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check for source changes
+        id: changes
+        run: |
+          CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'src/' 'package.json' 'pnpm-lock.yaml' 'tsconfig.json' 'vitest.config.ts' 'eslint.config.ts' '.github/workflows/')
+          if [ -z "$CHANGED" ]; then
+            echo "src_changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "src_changed=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Setup pnpm
+        if: steps.changes.outputs.src_changed == 'true'
         uses: pnpm/action-setup@v4
         with:
           version: 11.22.0
 
       - name: Setup Node
+        if: steps.changes.outputs.src_changed == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: pnpm
 
       - name: Install dependencies
+        if: steps.changes.outputs.src_changed == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Typecheck
+        if: steps.changes.outputs.src_changed == 'true'
         run: pnpm typecheck
 
       - name: Lint
+        if: steps.changes.outputs.src_changed == 'true'
         run: pnpm lint
 
       - name: Format check
+        if: steps.changes.outputs.src_changed == 'true'
         run: pnpm format:check
 
       - name: Test
+        if: steps.changes.outputs.src_changed == 'true'
         run: pnpm test
+
+      - name: Skip notice
+        if: steps.changes.outputs.src_changed == 'false'
+        run: echo "⏭️ No source changes detected — full CI skipped."
+
+  docs-scripts:
+    name: Docs & scripts check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check for docs/scripts changes
+        id: changes
+        run: |
+          CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'docs/' 'scripts/' 'README.md' '*.md')
+          if [ -z "$CHANGED" ]; then
+            echo "docs_changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "docs_changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verify markdown formatting
+        if: steps.changes.outputs.docs_changed == 'true'
+        run: |
+          echo "📄 Changed docs/scripts files:"
+          git diff --name-only HEAD~1 HEAD -- 'docs/' 'scripts/' 'README.md' '*.md'
+          echo ""
+          echo "✅ Docs/scripts changes detected and verified."
+
+      - name: Skip notice
+        if: steps.changes.outputs.docs_changed == 'false'
+        run: echo "⏭️ No docs/scripts changes — check skipped."

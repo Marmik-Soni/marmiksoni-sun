@@ -72,3 +72,13 @@ Trusted consumers (like Next.js apps) must call this service **server-side only*
 - `src/config/availability.ts` — Weekly working-hours ruleset.
 - `src/schemas/` — Zod request/response schemas.
 - `src/routes/` — Feature-based Fastify route handlers.
+- `scripts/` — Standalone utility scripts (e.g., `generate-report.js` for full codebase reports).
+
+## 9. CI/CD
+
+GitHub Actions runs on every push to `main` and on pull requests. The workflow is split into two jobs:
+
+1. **`ci` (Lint, typecheck, test)** — The full pipeline: `pnpm install --frozen-lockfile`, typecheck, ESLint, Prettier format check, and Vitest. This job detects whether source files (`src/`, `package.json`, `pnpm-lock.yaml`, `tsconfig.json`, config files, workflows) actually changed and skips the heavy steps when only docs or scripts were touched.
+2. **`docs-scripts` (Docs & scripts check)** — A lightweight job that runs when `docs/`, `scripts/`, or markdown files change. Verifies the changed files and logs them.
+
+This split avoids wasting CI minutes on a full Node.js install + test run when you're only editing documentation or utility scripts.
