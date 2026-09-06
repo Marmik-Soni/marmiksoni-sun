@@ -32,6 +32,25 @@ Fastify provides first-class TypeScript support and a robust, scalable plugin en
 **Reasoning:**
 This is a deliberate educational and operational choice. A primary goal of this ecosystem is gaining real hands-on infrastructure practice — encompassing containerization, CI/CD with GHCR, reverse proxies, and raw server ownership.
 
+### Multi-Stage Build
+
+The Dockerfile uses a two-stage approach:
+
+1. **Builder stage** (`node:24-alpine`): Installs _all_ dependencies (including devDependencies like TypeScript), runs `tsc` to compile to `dist/`, then is discarded.
+2. **Runtime stage** (`node:24-alpine`): Installs _only_ production dependencies, copies the compiled `dist/` from the builder. The final image contains no TypeScript compiler, no test frameworks, no linting tools.
+
+Both stages use `--ignore-scripts` on `pnpm install` because:
+
+- The `prepare` lifecycle script runs `husky`, which fails inside containers (no `.git` directory, and husky is a devDependency not present in prod installs).
+- pnpm's strict build-script policy (`ERR_PNPM_IGNORED_BUILDS`) blocks unapproved native module builds (e.g., esbuild). Since `tsc` doesn't depend on any postinstall scripts, skipping them is safe.
+
+### `.dockerignore`
+
+The `.dockerignore` excludes `node_modules`, `dist`, `.env`, `.env.*`, `.git`, `.github`, `coverage`, and `*.md`. This serves two critical purposes:
+
+- **Security:** Prevents live credentials (`.env`) from being baked into the image layer. Environment variables are injected at runtime via `--env-file`.
+- **Performance:** Keeps the Docker build context small and prevents cache invalidation when only docs or git history change.
+
 ## 5. Deliberately Narrow Scope
 
 **Decision:** `sun-backend` handles email and calendar operations, and absolutely nothing else.
