@@ -8,6 +8,7 @@ const filesToInclude = [
   'README.md',
   'docs/ARCHITECTURE.md',
   'docs/API.md',
+  'docs/DOCKER.md',
   'package.json',
   'tsconfig.json',
   'vitest.config.ts',
