@@ -22,6 +22,7 @@ It is a small internal platform designed to be called by other trusted backends 
 
 - Node.js 24+
 - pnpm 11+
+- Docker Desktop (for containerized runs)
 - Google Cloud Console account (for Calendar API credentials)
 - Resend account (for email API key)
 
@@ -59,19 +60,25 @@ It is a small internal platform designed to be called by other trusted backends 
 - `pnpm test` - Run Vitest suite
 - `pnpm check` - Full pipeline verify (typecheck, lint, format)
 
-## Docker Build & Run
+## Docker
 
-To build the production container locally:
+Build and run the production container locally:
 
 ```bash
+# Build
 docker build -t sun-backend:latest .
+
+# Run (maps host :3000 → container PORT from .env)
+docker run -d -p 3000:30000 --env-file .env --name sun-backend sun-backend:latest
+
+# Verify
+curl http://localhost:3000/health
 ```
 
-To run it:
+> **Windows note:** Docker's `--env-file` does not strip quotes or handle `\r\n` line endings.
+> Ensure `.env` uses **LF** line endings and **no surrounding quotes** on values.
 
-```bash
-docker run -p 3000:3000 --env-file .env sun-backend:latest
-```
+See the full [Docker Guide](docs/DOCKER.md) for multi-stage build details, troubleshooting, and verification steps.
 
 ## API Summary
 
@@ -89,5 +96,6 @@ docker run -p 3000:3000 --env-file .env sun-backend:latest
 
 ## Detailed Documentation
 
-- [Architecture & Design Decisions](docs/ARCHITECTURE.md) - Explains _why_ the system is built this way (no database, no state, narrow scope).
-- [API Reference](docs/API.md) - Full endpoint specifications.
+- [Architecture & Design Decisions](docs/ARCHITECTURE.md) — Explains _why_ the system is built this way (no database, no state, narrow scope).
+- [API Reference](docs/API.md) — Full endpoint specifications.
+- [Docker Guide](docs/DOCKER.md) — Build, run, verify, and troubleshoot the containerized service.

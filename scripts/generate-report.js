@@ -13,6 +13,8 @@ const filesToInclude = [
   'vitest.config.ts',
   'eslint.config.ts',
   'commitlint.config.ts',
+  'Dockerfile',
+  '.dockerignore',
   '.env.example',
   'src/index.ts',
   'src/server.ts',
@@ -44,7 +46,9 @@ for (const file of filesToInclude) {
   try {
     const content = fs.readFileSync(filePath, 'utf-8');
     const ext = path.extname(file).slice(1) || 'text';
-    const lang = ext === 'ts' ? 'typescript' : ext === 'json' ? 'json' : ext === 'md' ? 'markdown' : ext;
+    let lang = ext === 'ts' ? 'typescript' : ext === 'json' ? 'json' : ext === 'md' ? 'markdown' : ext;
+    if (file === 'Dockerfile') lang = 'dockerfile';
+    if (file === '.dockerignore') lang = 'gitignore';
     
     reportContent += `## \`${file}\`\n\n`;
     reportContent += `\`\`\`${lang}\n`;
