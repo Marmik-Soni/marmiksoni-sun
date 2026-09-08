@@ -31,13 +31,34 @@ describe("ics generation", () => {
     expect(ics).toContain("DTSTART:20251231T203000Z");
   });
 
-  it("sets METHOD:REQUEST so mail clients render an actionable invite", () => {
+  it("sets METHOD:PUBLISH so no RSVP reply is expected", () => {
     const ics = generateIcs({
       name: "Alice",
       email: "alice@example.com",
       date: "2026-08-25",
       time: "18:00",
     });
-    expect(ics).toContain("METHOD:REQUEST");
+    expect(ics).toContain("METHOD:PUBLISH");
+  });
+
+  it("does not include an ATTENDEE, since no reply is expected", () => {
+    const ics = generateIcs({
+      name: "Alice",
+      email: "alice@example.com",
+      date: "2026-08-25",
+      time: "18:00",
+    });
+    expect(ics).not.toContain("ATTENDEE");
+  });
+
+  it("still includes the organizer, even without an attendee", () => {
+    const ics = generateIcs({
+      name: "Alice",
+      email: "alice@example.com",
+      date: "2026-08-25",
+      time: "18:00",
+    });
+    expect(ics).toContain("ORGANIZER");
+    expect(ics).toContain("bookings@marmiksoni.co");
   });
 });
