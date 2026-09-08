@@ -1,12 +1,12 @@
 /**
  * Generates an ICS (iCalendar) file string for email attachments.
  *
- * Uses METHOD:REQUEST so mail clients render it as an actionable invite
- * with an "Add to Calendar" affordance, not a static event.
- *
- * The client is listed as an attendee *inside the ICS file* (separate from
- * Google Calendar's own attendees array, which is now empty). This is what
- * gives the client's mail app a proper RSVP experience.
+ * Uses METHOD:PUBLISH — an informational calendar entry the client can add
+ * to their calendar, with no RSVP expected. Earlier versions used
+ * METHOD:REQUEST with an RSVP-enabled attendee, which caused RSVP-aware
+ * mail clients to auto-generate an iTIP REPLY back to the organizer
+ * address. Since bookings@marmiksoni.co is send-only with no inbound mail
+ * handling, those replies bounced. PUBLISH carries no such expectation.
  */
 import { createEvent, type EventAttributes } from "ics";
 import { SLOT_DURATION_MINUTES, TIMEZONE_OFFSET } from "../config/availability.js";
@@ -47,17 +47,8 @@ export function generateIcs(params: {
     duration: { minutes: SLOT_DURATION_MINUTES },
     title: `Booking with ${params.name}`,
     description: params.notes ?? "",
-    method: "REQUEST",
+    method: "PUBLISH",
     organizer: { name: "Marmik Soni", email: extractEmail(env.EMAIL_FROM) },
-    attendees: [
-      {
-        name: params.name,
-        email: params.email,
-        rsvp: true,
-        partstat: "NEEDS-ACTION",
-        role: "REQ-PARTICIPANT",
-      },
-    ],
   };
 
   const { error, value } = createEvent(event);
