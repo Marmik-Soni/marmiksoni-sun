@@ -2,13 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, staging]
   pull_request:
-    branches: [main]
+    branches: [main, staging]
 
 jobs:
   ci:
-    name: Lint, typecheck, test
+    name: Lint, typecheck, test, e2e
     runs-on: ubuntu-latest
     # Skip the full pipeline when only docs or scripts change
     if: >-
@@ -23,7 +23,7 @@ jobs:
       - name: Check for source changes
         id: changes
         run: |
-          CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'src/' 'package.json' 'pnpm-lock.yaml' 'tsconfig.json' 'vitest.config.ts' 'eslint.config.ts' '.github/workflows/')
+          CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'src/' 'tests/' 'playwright.config.ts' 'package.json' 'pnpm-lock.yaml' 'tsconfig.json' 'vitest.config.ts' 'eslint.config.ts' '.github/workflows/')
           if [ -z "$CHANGED" ]; then
             echo "src_changed=false" >> "$GITHUB_OUTPUT"
           else
@@ -59,9 +59,29 @@ jobs:
         if: steps.changes.outputs.src_changed == 'true'
         run: pnpm format:check
 
-      - name: Test
+      - name: Unit & Integration Tests (Vitest)
         if: steps.changes.outputs.src_changed == 'true'
         run: pnpm test
+
+      - name: Install Playwright Chromium
+        if: steps.changes.outputs.src_changed == 'true'
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Playwright E2E Tests (Staging Smoke)
+        if: steps.changes.outputs.src_changed == 'true'
+        run: pnpm test:e2e:staging
+        env:
+          STAGING_URL: ${{ secrets.STAGING_URL || 'https://staging-sun.marmiksoni.co' }}
+          SUN_API_SECRET: ${{ secrets.SUN_API_SECRET || 'dfa44c12e5051e1634a9a63be5d3f6e1f4a51e0c5d65c5fd744edacc76c6a0e4' }}
+          APPROVAL_TOKEN_SECRET: ${{ secrets.APPROVAL_TOKEN_SECRET || '815930cbdf7a1fb6f1215f89734817a1dd545a89971053f4159254ecac0464ea' }}
+
+      - name: Upload Playwright Report
+        uses: actions/upload-artifact@v4
+        if: ${{ failure() && steps.changes.outputs.src_changed == 'true' }}
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
 
       - name: Skip notice
         if: steps.changes.outputs.src_changed == 'false'

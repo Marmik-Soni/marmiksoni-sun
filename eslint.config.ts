@@ -4,7 +4,17 @@ import eslintConfigPrettier from "eslint-config-prettier";
 
 export default tseslint.config(
   // Global ignores
-  { ignores: ["dist/", "node_modules/", "coverage/"] },
+  {
+    ignores: [
+      "dist/",
+      "node_modules/",
+      "coverage/",
+      "test-results/",
+      "playwright-report/",
+      "tests/",
+      "*.config.ts",
+    ],
+  },
 
   // Base JS recommended
   js.configs.recommended,
