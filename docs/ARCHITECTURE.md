@@ -91,13 +91,41 @@ Trusted consumers (like Next.js apps) must call this service **server-side only*
 - `src/config/availability.ts` — Weekly working-hours ruleset.
 - `src/schemas/` — Zod request/response schemas.
 - `src/routes/` — Feature-based Fastify route handlers.
+- `tests/e2e/` — Playwright E2E browser and live staging smoke tests.
+- `playwright.config.ts` — Playwright dual-project configuration (`e2e-staging` and `e2e-local`).
+- `docs/STAGING.md` — Staging infrastructure, Render deployment, and Cloudflare DNS guide.
+- `docs/TESTING.md` — Full testing strategy, Vitest suites, and Playwright specifications.
+- `docs/DOCKER.md` — Docker containerization and operational manual.
 - `scripts/` — Standalone utility scripts (e.g., `generate-report.js` for full codebase reports).
 
-## 9. CI/CD
+## 9. Staging & Environment Strategy
 
-GitHub Actions runs on every push to `main` and on pull requests. The workflow is split into two jobs:
+We employ a multi-tier environment strategy to test live integrations before deploying to production:
 
-1. **`ci` (Lint, typecheck, test)** — The full pipeline: `pnpm install --frozen-lockfile`, typecheck, ESLint, Prettier format check, and Vitest. This job detects whether source files (`src/`, `package.json`, `pnpm-lock.yaml`, `tsconfig.json`, config files, workflows) actually changed and skips the heavy steps when only docs or scripts were touched.
-2. **`docs-scripts` (Docs & scripts check)** — A lightweight job that runs when `docs/`, `scripts/`, or markdown files change. Verifies the changed files and logs them.
+```
+feat/* ──► PR ──► staging ──────────────────────────────► main
+                    │                                       │
+                    ▼                                       ▼
+            Render Staging                           Production VPS
+  (https://staging-sun.marmiksoni.co)            (https://sun.marmiksoni.co)
+```
 
-This split avoids wasting CI minutes on a full Node.js install + test run when you're only editing documentation or utility scripts.
+- **Staging (`staging-sun.marmiksoni.co`)**: Hosted on Render as a Docker web service with automatic deployment upon merge to the `staging` branch. DNS is managed in Cloudflare via a DNS-only CNAME record.
+- **Production (`sun.marmiksoni.co`)**: Self-managed Linux VPS running Docker behind Caddy, deployed upon merge to `main`.
+- **Frontend Staging Alignment**: The staging backend pairs with the staging frontend hosted at `https://staging.marmiksoni.co` (`PUBLIC_APP_URL`).
+
+## 10. End-to-End Testing Strategy
+
+In addition to fast Vitest unit tests, the repository includes a comprehensive Playwright test suite:
+
+- **Host HTML Actions**: Automates Chromium to test the actual browser pages hosts encounter from email links (`/bookings/approve`, `/bookings/reject`, `/bookings/cancel`).
+- **Live Staging Smoke Tests**: Executes non-destructive requests against `https://staging-sun.marmiksoni.co` to verify service health, authorization hooks, and real-time Google Calendar slot computation.
+
+See [TESTING.md](file:///c:/MarmikSoni/marmiksoni-sun/docs/TESTING.md) for full details.
+
+## 11. CI/CD
+
+GitHub Actions runs on every push to `main` and `staging`, as well as on all pull requests. The workflow is split into two jobs:
+
+1. **`ci` (Lint, typecheck, test, e2e)** — The complete validation pipeline: `pnpm install --frozen-lockfile`, TypeScript typecheck (`tsc --noEmit`), ESLint, Prettier format check, Vitest unit tests, and Playwright live staging smoke tests. If failures occur in Playwright, the test report is uploaded as a build artifact.
+2. **`docs-scripts` (Docs & scripts check)** — A lightweight job that runs when `docs/`, `scripts/`, or markdown files change, skipping heavy Node dependency installations when only documentation is updated.

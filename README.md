@@ -13,10 +13,12 @@ It is a small internal platform designed to be called by other trusted backends 
 - **Logging**: Pino
 - **Integrations**: Google Calendar (`googleapis`), Resend
 - **Dev Runner**: `tsx`
-- **Testing**: Vitest
+- **Testing**: Vitest (Unit/Integration), Playwright (E2E Browser & Smoke)
 - **Containerization**: Docker (multi-stage, `node:24-alpine`)
-- **CI/CD**: GitHub Actions, GHCR
-- **Hosting**: Self-managed Linux VPS behind a Caddy reverse proxy
+- **CI/CD**: GitHub Actions
+- **Hosting**:
+  - **Staging**: Render Docker web service (`https://staging-sun.marmiksoni.co`)
+  - **Production**: Self-managed Linux VPS behind a Caddy reverse proxy (`https://sun.marmiksoni.co`)
 
 ## Prerequisites
 
@@ -57,8 +59,26 @@ It is a small internal platform designed to be called by other trusted backends 
 - `pnpm build` - Compile TypeScript to `dist/`
 - `pnpm start` - Run compiled output
 - `pnpm lint` / `pnpm format:check` - Code quality checks
-- `pnpm test` - Run Vitest suite
+- `pnpm test` - Run Vitest unit & integration suite (32 tests)
+- `pnpm test:e2e` - Run Playwright E2E smoke tests against live staging (16 tests)
+- `pnpm test:e2e:staging` - Run Playwright specifically against staging URL
+- `pnpm test:e2e:local` - Run Playwright against local dev server
 - `pnpm check` - Full pipeline verify (typecheck, lint, format)
+
+## Staging Environment
+
+The live staging backend is accessible at:
+
+```text
+https://staging-sun.marmiksoni.co
+```
+
+- Hosted on **Render** (Docker Web Service) linked to the `staging` branch.
+- Automatically deploys whenever changes are merged into `staging`.
+- DNS managed through **Cloudflare** via a DNS-only CNAME record.
+- Pairs with the staging frontend hosted at `https://staging.marmiksoni.co`.
+
+See the full [Staging Guide](docs/STAGING.md) for deployment procedures, environment variables, and verification.
 
 ## Docker
 
@@ -97,5 +117,7 @@ See the full [Docker Guide](docs/DOCKER.md) for multi-stage build details, troub
 ## Detailed Documentation
 
 - [Architecture & Design Decisions](docs/ARCHITECTURE.md) — Explains _why_ the system is built this way (no database, no state, narrow scope).
+- [Staging Environment Guide](docs/STAGING.md) — Render deployment, Cloudflare DNS, and environment configuration.
+- [Testing Guide](docs/TESTING.md) — Complete guide to Vitest unit tests, Playwright E2E browser tests, and CI/CD.
 - [API Reference](docs/API.md) — Full endpoint specifications.
 - [Docker Guide](docs/DOCKER.md) — Build, run, verify, and troubleshoot the containerized service.
