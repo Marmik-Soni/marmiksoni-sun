@@ -82,17 +82,19 @@ See the full [Docker Guide](docs/DOCKER.md) for multi-stage build details, troub
 
 ## API Summary
 
-| Method | Path                            | Auth                    | Purpose                             |
-| ------ | ------------------------------- | ----------------------- | ----------------------------------- |
-| GET    | `/health`                       | none                    | Liveness probe                      |
-| GET    | `/availability?date=YYYY-MM-DD` | `SUN_API_SECRET` header | Check host free/busy                |
-| POST   | `/bookings`                     | `SUN_API_SECRET` header | Request a new booking               |
-| GET    | `/bookings/approve?token=...`   | Signed token in URL     | Show approval confirmation page     |
-| POST   | `/bookings/approve`             | Signed token in body    | Approve a pending booking           |
-| GET    | `/bookings/reject?token=...`    | Signed token in URL     | Show rejection confirmation page    |
-| POST   | `/bookings/reject`              | Signed token in body    | Reject a pending booking            |
-| GET    | `/bookings/cancel?token=...`    | Signed token in URL     | Show cancellation confirmation page |
-| POST   | `/bookings/cancel`              | Signed token in body    | Cancel an existing booking          |
+| Method | Path                             | Auth                    | Purpose                             |
+| ------ | -------------------------------- | ----------------------- | ----------------------------------- |
+| GET    | `/health`                        | none                    | Liveness probe                      |
+| GET    | `/availability?date=YYYY-MM-DD`  | `SUN_API_SECRET` header | Check host free/busy                |
+| POST   | `/bookings`                      | `SUN_API_SECRET` header | Request a new booking               |
+| GET    | `/bookings/approve?token=...`    | Signed token in URL     | Show approval confirmation page     |
+| POST   | `/bookings/approve`              | Signed token in body    | Approve a pending booking           |
+| GET    | `/bookings/reject?token=...`     | Signed token in URL     | Show rejection confirmation page    |
+| POST   | `/bookings/reject`               | Signed token in body    | Reject a pending booking            |
+| GET    | `/bookings/cancel?token=...`     | Signed token in URL     | Show cancellation confirmation page |
+| POST   | `/bookings/cancel`               | Signed token in body    | Cancel an existing booking (host)   |
+| GET    | `/api/bookings/cancel?token=...` | Signed token in URL     | Preview booking for client cancel   |
+| POST   | `/api/bookings/cancel`           | Signed token in body    | Client self-serve booking cancel    |
 
 ## Detailed Documentation
 

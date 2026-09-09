@@ -80,6 +80,9 @@ Trusted consumers (like Next.js apps) must call this service **server-side only*
 - **Modes**: Saturday (all day) and Sunday evening are instant-book. Weekdays are request-only and require host manual approval.
 - **Availability**: Slot availability is a combination of a configured weekly-hours ruleset and a live free/busy check.
 - **Client Notifications & Calendar**: Creating a booking creates a host-only Google Calendar event (`sendUpdates: none`, no attendees). Client notifications (pending, confirmation, decline, cancellation) are delivered entirely via custom Resend emails from our own domain. The confirmation email includes an in-house generated `.ics` attachment to seamlessly add the event to the client's calendar.
+- **`BASE_URL` vs `PUBLIC_APP_URL`**: Two distinct URL variables serve different purposes:
+  - `BASE_URL` — sun-backend's own address (e.g. `https://sun.marmiksoni.co`). Used exclusively for the host-facing HTML action links (approve/reject/cancel) that the host opens directly from email.
+  - `PUBLIC_APP_URL` — the frontend application's public URL (e.g. `https://marmiksoni.co`). Used only in the client-facing cancel link embedded in confirmation emails. The frontend receives this link, presents a confirmation UI to the client, then calls `POST /api/bookings/cancel` server-to-server. These two must stay separate: the host's HTML flow and the client's JSON API flow live on different origins.
 
 ## 8. Module Layout Overview
 

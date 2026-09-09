@@ -139,4 +139,40 @@ Cancels an existing, approved booking. Deletes the Google Calendar event and sen
 - **Body** (`application/x-www-form-urlencoded`):
   - `token` (string, required): HMAC-signed state payload containing the calendar event ID
 - **Response**: `200 OK` (HTML page confirming the cancellation)
-- **Error**: `400 Bad Request` (Invalid token)
+- **Error**: `400 Bad Request` (Invalid token), `409 Conflict` (Booking already cancelled)
+
+---
+
+## `GET /api/bookings/cancel`
+
+Preview endpoint for client-facing self-serve cancellation. Returns the booking details encoded in the token for the frontend to render a confirmation UI. **Does not perform any action.**
+
+- **Auth**: None (Relies on signed token — the token is the authorization)
+- **Query Params**:
+  - `token` (string, required): HMAC-signed cancel token (embedded in the confirmation email sent to the client)
+- **Response**: `200 OK`
+  ```json
+  {
+    "ok": true,
+    "data": { "name": "John Doe", "date": "2026-08-20", "time": "09:00" }
+  }
+  ```
+- **Error**: `400 Bad Request` (Missing, invalid, or expired token)
+
+## `POST /api/bookings/cancel`
+
+Executes client self-serve cancellation. Deletes the Google Calendar event and notifies the host. Called server-to-server from the frontend's backend — body is JSON, not form-encoded.
+
+- **Auth**: None (Relies on signed token in JSON body — the token is the authorization)
+- **Body** (`application/json`):
+  ```json
+  { "token": "<signed-cancel-token>" }
+  ```
+- **Response**: `200 OK`
+  ```json
+  {
+    "ok": true,
+    "data": { "name": "John Doe", "date": "2026-08-20", "time": "09:00" }
+  }
+  ```
+- **Error**: `400 Bad Request` (Invalid/expired token), `409 Conflict` (Booking already cancelled)

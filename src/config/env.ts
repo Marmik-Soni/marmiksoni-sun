@@ -27,6 +27,7 @@ const envSchema = z.object({
 
   // URLs
   BASE_URL: z.string().url("BASE_URL must be a valid URL"),
+  PUBLIC_APP_URL: z.string().url("PUBLIC_APP_URL must be a valid URL"),
 });
 
 function loadEnv() {
