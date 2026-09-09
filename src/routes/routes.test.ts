@@ -220,6 +220,7 @@ describe("POST /bookings", () => {
       "alice@example.com",
       expect.any(Object),
       "mock-ics-content",
+      expect.stringContaining("/bookings/cancel?token="),
     );
     expect(sendHostBookingNotification).toHaveBeenCalledWith(
       expect.objectContaining({ clientNotified: true }),

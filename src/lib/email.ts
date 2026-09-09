@@ -118,6 +118,7 @@ export async function sendClientBookingConfirmation(
   to: string,
   details: BookingDetails,
   icsContent: string,
+  cancelUrl: string,
 ): Promise<void> {
   const safeName = escapeHtml(details.name);
 
@@ -130,6 +131,8 @@ export async function sendClientBookingConfirmation(
       <p>Hi ${safeName},</p>
       <p>Your booking for <strong>${details.date} at ${details.time}</strong> has been confirmed.</p>
       <p>An .ics calendar invite is attached to this email — open it to add the event to your calendar.</p>
+      <hr />
+      <p>Need to cancel? <a href="${cancelUrl}">Cancel this booking</a></p>
     `,
     attachments: [
       {
@@ -159,6 +162,29 @@ export async function sendClientDeclineNotice(to: string, details: BookingDetail
       <p>Hi ${safeName},</p>
       <p>Unfortunately, your booking request for <strong>${details.date} at ${details.time}</strong> has been declined.</p>
       <p>Please feel free to request a different time.</p>
+    `,
+  });
+
+  if (error) {
+    throw new Error(`Resend API Error: ${error.message}`);
+  }
+}
+
+/**
+ * Notifies the host that a client cancelled their own booking via the
+ * self-serve cancellation flow.
+ */
+export async function sendHostCancellationNotice(details: BookingDetails): Promise<void> {
+  const safeName = escapeHtml(details.name);
+  const safeEmail = escapeHtml(details.email);
+
+  const { error } = await resend.emails.send({
+    from: env.EMAIL_FROM,
+    to: env.HOST_EMAIL,
+    subject: `Booking cancelled by client: ${details.date} at ${details.time}`,
+    html: `
+      <h2>Booking Cancelled</h2>
+      <p><strong>${safeName}</strong> (${safeEmail}) cancelled their booking for <strong>${details.date} at ${details.time}</strong>.</p>
     `,
   });
 

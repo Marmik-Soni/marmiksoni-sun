@@ -4,6 +4,7 @@ import { env } from "./config/env.js";
 import healthRoute from "./routes/health.js";
 import availabilityRoute from "./routes/availability.js";
 import bookingsRoutes from "./routes/bookings.js";
+import apiBookingsRoutes from "./routes/api-bookings.js";
 
 /** Routes that require the x-api-key header */
 const API_KEY_ROUTES = new Set(["GET /availability", "POST /bookings"]);
@@ -37,6 +38,7 @@ export async function buildServer() {
   await server.register(healthRoute);
   await server.register(availabilityRoute);
   await server.register(bookingsRoutes);
+  await server.register(apiBookingsRoutes);
 
   return server;
 }

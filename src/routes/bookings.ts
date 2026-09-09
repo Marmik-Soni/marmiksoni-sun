@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync } from "fastify";
+import type { FastifyPluginAsync, FastifyBaseLogger } from "fastify";
 import {
   CreateBookingSchema,
   TokenQuerySchema,
@@ -14,6 +14,7 @@ import {
   sendClientBookingConfirmation,
   sendClientDeclineNotice,
   sendCancellationNotice,
+  sendHostCancellationNotice,
 } from "../lib/email.js";
 import { signToken, verifyToken } from "../lib/approval-token.js";
 import { generateIcs } from "../lib/ics.js";
@@ -25,6 +26,61 @@ const APPROVAL_TOKEN_EXPIRY = 72 * 60 * 60;
 
 /** 30 days in seconds — expiry for cancel tokens */
 const CANCEL_TOKEN_EXPIRY = 30 * 24 * 60 * 60;
+
+export type CancellationResult =
+  | { ok: true; payload: CancelTokenPayload }
+  | { ok: false; status: 400; error: "Invalid or expired token." }
+  | { ok: false; status: 409; error: "This booking has already been cancelled." };
+
+function isEventAlreadyGone(err: unknown): boolean {
+  const code = (err as { code?: number })?.code;
+  return code === 404 || code === 410;
+}
+
+/**
+ * Verifies a cancel token, deletes the Calendar event, and notifies
+ * whichever party didn't initiate the cancellation. Shared by the
+ * host-facing HTML route and the client-facing JSON API route so the
+ * logic can't drift between the two surfaces.
+ */
+export async function performCancellation(
+  token: string,
+  notify: "client" | "host",
+  logger: FastifyBaseLogger,
+): Promise<CancellationResult> {
+  const payload = verifyToken<CancelTokenPayload>(token);
+  if (!payload) {
+    return { ok: false, status: 400, error: "Invalid or expired token." };
+  }
+
+  try {
+    await cancelEvent(payload.eventId);
+  } catch (err) {
+    if (isEventAlreadyGone(err)) {
+      return { ok: false, status: 409, error: "This booking has already been cancelled." };
+    }
+    throw err;
+  }
+
+  const details = {
+    name: payload.name,
+    email: payload.email,
+    date: payload.date,
+    time: payload.time,
+  };
+
+  try {
+    if (notify === "client") {
+      await sendCancellationNotice(payload.email, details);
+    } else {
+      await sendHostCancellationNotice(details);
+    }
+  } catch (err) {
+    logger.error({ err }, `Failed to send ${notify} cancellation notice`);
+  }
+
+  return { ok: true, payload };
+}
 
 function htmlPage(title: string, body: string): string {
   return `<!DOCTYPE html>
@@ -110,26 +166,31 @@ const bookingsRoutes: FastifyPluginAsync = async (app) => {
         end: endISO,
       });
 
+      // Build cancel URLs before sending any emails
+      const cancelToken = signToken<CancelTokenPayload>(
+        { eventId, name, email, date, time },
+        CANCEL_TOKEN_EXPIRY,
+      );
+      const hostCancelUrl = `${env.BASE_URL}/bookings/cancel?token=${cancelToken}`;
+      const clientCancelUrl = `${env.PUBLIC_APP_URL}/bookings/cancel?token=${cancelToken}`;
+
       // Generate ICS and send client confirmation
       let clientNotified = true;
       try {
         const icsContent = generateIcs({ name, email, date, time, notes });
-        await sendClientBookingConfirmation(email, bookingDetails, icsContent);
+        await sendClientBookingConfirmation(email, bookingDetails, icsContent, clientCancelUrl);
       } catch (err) {
         clientNotified = false;
         app.log.error({ err }, "Failed to send client booking confirmation");
       }
 
-      // Sign a cancel token for the host
-      const cancelToken = signToken<CancelTokenPayload>(
-        { eventId, name, email, date, time },
-        CANCEL_TOKEN_EXPIRY,
-      );
-      const cancelUrl = `${env.BASE_URL}/bookings/cancel?token=${cancelToken}`;
-
       // Host notification — failure is logged, not fatal
       try {
-        await sendHostBookingNotification({ ...bookingDetails, cancelUrl, clientNotified });
+        await sendHostBookingNotification({
+          ...bookingDetails,
+          cancelUrl: hostCancelUrl,
+          clientNotified,
+        });
       } catch (err) {
         app.log.error({ err }, "Failed to send host booking notification");
       }
@@ -234,6 +295,14 @@ const bookingsRoutes: FastifyPluginAsync = async (app) => {
       end: endISO,
     });
 
+    // Build cancel URLs before sending any emails
+    const cancelToken = signToken<CancelTokenPayload>(
+      { eventId, name: payload.name, email: payload.email, date: payload.date, time: payload.time },
+      CANCEL_TOKEN_EXPIRY,
+    );
+    const hostCancelUrl = `${env.BASE_URL}/bookings/cancel?token=${cancelToken}`;
+    const clientCancelUrl = `${env.PUBLIC_APP_URL}/bookings/cancel?token=${cancelToken}`;
+
     // Generate ICS and send client confirmation
     let clientNotified = true;
     try {
@@ -254,6 +323,7 @@ const bookingsRoutes: FastifyPluginAsync = async (app) => {
           notes: payload.notes,
         },
         icsContent,
+        clientCancelUrl,
       );
     } catch (err) {
       clientNotified = false;
@@ -261,12 +331,6 @@ const bookingsRoutes: FastifyPluginAsync = async (app) => {
     }
 
     // Sign a cancel token for the host notification
-    const cancelToken = signToken<CancelTokenPayload>(
-      { eventId, name: payload.name, email: payload.email, date: payload.date, time: payload.time },
-      CANCEL_TOKEN_EXPIRY,
-    );
-    const cancelUrl = `${env.BASE_URL}/bookings/cancel?token=${cancelToken}`;
-
     try {
       await sendHostBookingNotification({
         name: payload.name,
@@ -274,7 +338,7 @@ const bookingsRoutes: FastifyPluginAsync = async (app) => {
         date: payload.date,
         time: payload.time,
         notes: payload.notes,
-        cancelUrl,
+        cancelUrl: hostCancelUrl,
         clientNotified,
       });
     } catch (err) {
@@ -401,33 +465,22 @@ const bookingsRoutes: FastifyPluginAsync = async (app) => {
       return reply.status(400).type("text/html").send(errorPage("Missing or invalid token."));
     }
 
-    const payload = verifyToken<CancelTokenPayload>(parsed.data.token);
-    if (!payload) {
-      return reply.status(400).type("text/html").send(errorPage("Invalid or expired token."));
+    const result = await performCancellation(parsed.data.token, "client", app.log);
+
+    if (!result.ok) {
+      const message =
+        result.status === 409 ? "This booking has already been cancelled." : result.error;
+      return reply.status(result.status).type("text/html").send(errorPage(message));
     }
 
-    await cancelEvent(payload.eventId);
-
-    // Send cancellation notice to the client — failure is logged, not fatal
-    try {
-      await sendCancellationNotice(payload.email, {
-        name: payload.name,
-        email: payload.email,
-        date: payload.date,
-        time: payload.time,
-      });
-    } catch (err) {
-      app.log.error({ err }, "Failed to send client cancellation notice");
-    }
-
-    const safeName = escapeHtml(payload.name);
-    const safeEmail = escapeHtml(payload.email);
+    const safeName = escapeHtml(result.payload.name);
+    const safeEmail = escapeHtml(result.payload.email);
 
     return reply.type("text/html").send(
       htmlPage(
         "Booking Cancelled",
         `<h2>Booking Cancelled</h2>
-         <p>The booking for <strong>${safeName}</strong> on <strong>${payload.date} at ${payload.time}</strong> has been cancelled.</p>
+         <p>The booking for <strong>${safeName}</strong> on <strong>${result.payload.date} at ${result.payload.time}</strong> has been cancelled.</p>
          <p>A cancellation notice has been sent to ${safeEmail}.</p>`,
       ),
     );
