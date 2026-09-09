@@ -15,6 +15,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test --project=e2e-staging",
+    "test:e2e:staging": "playwright test --project=e2e-staging",
+    "test:e2e:local": "playwright test --project=e2e-local",
     "check": "pnpm typecheck && pnpm lint && pnpm format:check",
     "prepare": "husky"
   },
@@ -34,8 +37,10 @@
   "type": "module",
   "packageManager": "pnpm@11.22.0",
   "lint-staged": {
+    "src/**/*.ts": [
+      "eslint --fix"
+    ],
     "*.ts": [
-      "eslint --fix",
       "prettier --write"
     ],
     "*.{json,md,yaml,yml}": [
@@ -55,6 +60,7 @@
     "@commitlint/cli": "^21.2.2",
     "@commitlint/config-conventional": "^21.2.2",
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.63.0",
     "@types/node": "^24.9.0",
     "eslint": "^10.8.1",
     "eslint-config-prettier": "^10.1.8",
